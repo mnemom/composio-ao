@@ -357,6 +357,12 @@ export interface AgentLaunchConfig {
    * Populated by parseDispatchLabels() in session-manager when an issue has labels.
    */
   metadata?: Record<string, string>;
+  /**
+   * Additional environment variables to inject into the agent process.
+   * Used by War Engine for per-human API keys, advisor config, etc.
+   * Fork-only field — not in upstream AgentLaunchConfig.
+   */
+  additionalEnvironment?: Record<string, string>;
 }
 
 export interface WorkspaceHooksConfig {

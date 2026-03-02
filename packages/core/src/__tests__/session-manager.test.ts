@@ -670,6 +670,234 @@ describe("spawn", () => {
   });
 });
 
+describe("War Engine human attribution (fork-only)", () => {
+  function makeTrackerWithAssignee(assignee: string): Tracker {
+    return {
+      name: "mock-tracker",
+      getIssue: vi.fn().mockResolvedValue({
+        id: "INT-500",
+        title: "Test",
+        description: "",
+        url: "",
+        state: "open" as const,
+        labels: ["dispatch:cli-single"],
+        assignee,
+      }),
+      isCompleted: vi.fn().mockResolvedValue(false),
+      issueUrl: vi.fn().mockReturnValue(""),
+      branchName: vi.fn().mockReturnValue("feat/INT-500"),
+      generatePrompt: vi.fn().mockResolvedValue(""),
+    };
+  }
+
+  function makeRegistryWithTracker(tracker: Tracker): PluginRegistry {
+    return {
+      ...mockRegistry,
+      get: vi.fn().mockImplementation((slot: string) => {
+        if (slot === "runtime") return mockRuntime;
+        if (slot === "agent") return mockAgent;
+        if (slot === "workspace") return mockWorkspace;
+        if (slot === "tracker") return tracker;
+        return null;
+      }),
+    };
+  }
+
+  it("injects per-human API key when assignee matches", async () => {
+    const warConfig = {
+      ...config,
+      warEngine: {
+        humans: {
+          alex: {
+            linear_display_name: "Alex Garden",
+            anthropic_api_key_ref: "env:TEST_API_KEY",
+            advisor_name: "alex-advisor",
+          },
+        },
+        war_name: "test-war",
+      },
+    };
+
+    process.env["TEST_API_KEY"] = "sk-test-123";
+
+    const tracker = makeTrackerWithAssignee("Alex Garden");
+    const sm = createSessionManager({
+      config: warConfig as unknown as OrchestratorConfig,
+      registry: makeRegistryWithTracker(tracker),
+    });
+
+    await sm.spawn({ projectId: "my-app", issueId: "INT-500" });
+
+    const envCall = (mockAgent.getEnvironment as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(envCall.additionalEnvironment).toBeDefined();
+    expect(envCall.additionalEnvironment["ANTHROPIC_API_KEY"]).toBe("sk-test-123");
+    expect(envCall.additionalEnvironment["ADVISOR_NAME"]).toBe("alex-advisor");
+    expect(envCall.additionalEnvironment["WAR_NAME"]).toBe("test-war");
+
+    delete process.env["TEST_API_KEY"];
+  });
+
+  it("injects advisor vars when advisor config is present", async () => {
+    const warConfig = {
+      ...config,
+      warEngine: {
+        humans: {
+          alex: {
+            linear_display_name: "Alex Garden",
+            anthropic_api_key_ref: "raw-key-value",
+            advisor_name: "alex-advisor",
+          },
+        },
+        advisor: {
+          api_url: "https://advisor.example.com",
+          api_key_ref: "env:TEST_ADVISOR_KEY",
+        },
+        war_name: "test-war",
+      },
+    };
+
+    process.env["TEST_ADVISOR_KEY"] = "advisor-key-123";
+
+    const tracker = makeTrackerWithAssignee("Alex Garden");
+    const sm = createSessionManager({
+      config: warConfig as unknown as OrchestratorConfig,
+      registry: makeRegistryWithTracker(tracker),
+    });
+
+    await sm.spawn({ projectId: "my-app", issueId: "INT-500" });
+
+    const envCall = (mockAgent.getEnvironment as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(envCall.additionalEnvironment["ADVISOR_API_URL"]).toBe("https://advisor.example.com");
+    expect(envCall.additionalEnvironment["ADVISOR_API_KEY"]).toBe("advisor-key-123");
+
+    delete process.env["TEST_ADVISOR_KEY"];
+  });
+
+  it("sets human_id in dispatch metadata", async () => {
+    const warConfig = {
+      ...config,
+      warEngine: {
+        humans: {
+          alex: {
+            linear_display_name: "Alex Garden",
+            anthropic_api_key_ref: "raw-key",
+            advisor_name: "alex-advisor",
+          },
+        },
+      },
+    };
+
+    const tracker = makeTrackerWithAssignee("Alex Garden");
+    const sm = createSessionManager({
+      config: warConfig as unknown as OrchestratorConfig,
+      registry: makeRegistryWithTracker(tracker),
+    });
+
+    await sm.spawn({ projectId: "my-app", issueId: "INT-500" });
+
+    const envCall = (mockAgent.getEnvironment as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(envCall.metadata).toBeDefined();
+    expect(envCall.metadata["human_id"]).toBe("alex");
+  });
+
+  it("gracefully handles missing assignee", async () => {
+    const warConfig = {
+      ...config,
+      warEngine: {
+        humans: {
+          alex: {
+            linear_display_name: "Alex Garden",
+            anthropic_api_key_ref: "raw-key",
+            advisor_name: "alex-advisor",
+          },
+        },
+      },
+    };
+
+    const tracker: Tracker = {
+      name: "mock-tracker",
+      getIssue: vi.fn().mockResolvedValue({
+        id: "INT-600",
+        title: "Test",
+        description: "",
+        url: "",
+        state: "open" as const,
+        labels: ["dispatch:cli-single"],
+        // No assignee
+      }),
+      isCompleted: vi.fn().mockResolvedValue(false),
+      issueUrl: vi.fn().mockReturnValue(""),
+      branchName: vi.fn().mockReturnValue("feat/INT-600"),
+      generatePrompt: vi.fn().mockResolvedValue(""),
+    };
+
+    const sm = createSessionManager({
+      config: warConfig as unknown as OrchestratorConfig,
+      registry: makeRegistryWithTracker(tracker),
+    });
+
+    // Should not throw
+    const session = await sm.spawn({ projectId: "my-app", issueId: "INT-600" });
+    expect(session).toBeDefined();
+
+    const envCall = (mockAgent.getEnvironment as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(envCall.additionalEnvironment).toBeUndefined();
+  });
+
+  it("gracefully handles unmatched assignee", async () => {
+    const warConfig = {
+      ...config,
+      warEngine: {
+        humans: {
+          alex: {
+            linear_display_name: "Alex Garden",
+            anthropic_api_key_ref: "raw-key",
+            advisor_name: "alex-advisor",
+          },
+        },
+      },
+    };
+
+    const tracker = makeTrackerWithAssignee("Unknown Person");
+    const sm = createSessionManager({
+      config: warConfig as unknown as OrchestratorConfig,
+      registry: makeRegistryWithTracker(tracker),
+    });
+
+    const session = await sm.spawn({ projectId: "my-app", issueId: "INT-500" });
+    expect(session).toBeDefined();
+
+    const envCall = (mockAgent.getEnvironment as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(envCall.additionalEnvironment).toBeUndefined();
+  });
+
+  it("raw API key ref is passed through directly", async () => {
+    const warConfig = {
+      ...config,
+      warEngine: {
+        humans: {
+          alex: {
+            linear_display_name: "Alex Garden",
+            anthropic_api_key_ref: "sk-raw-api-key-value",
+            advisor_name: "alex-advisor",
+          },
+        },
+      },
+    };
+
+    const tracker = makeTrackerWithAssignee("Alex Garden");
+    const sm = createSessionManager({
+      config: warConfig as unknown as OrchestratorConfig,
+      registry: makeRegistryWithTracker(tracker),
+    });
+
+    await sm.spawn({ projectId: "my-app", issueId: "INT-500" });
+
+    const envCall = (mockAgent.getEnvironment as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(envCall.additionalEnvironment["ANTHROPIC_API_KEY"]).toBe("sk-raw-api-key-value");
+  });
+});
+
 describe("list", () => {
   it("lists sessions from metadata", async () => {
     writeMetadata(sessionsDir, "app-1", {

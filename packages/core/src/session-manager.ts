@@ -48,6 +48,7 @@ import {
   reserveSessionId,
 } from "./metadata.js";
 import { buildPrompt } from "./prompt-builder.js";
+import { getWarEngineConfig, resolveRef } from "./config.js";
 import {
   getSessionsDir,
   getProjectBaseDir,
@@ -379,6 +380,40 @@ export function createSessionManager(deps: SessionManagerDeps): SessionManager {
       ? parseDispatchLabels(resolvedIssue.labels)
       : {};
 
+    // War Engine: resolve per-human environment variables (fork-only)
+    const additionalEnvironment: Record<string, string> = {};
+    const warConfig = getWarEngineConfig(config);
+    if (warConfig && resolvedIssue?.assignee) {
+      const humanEntry = Object.entries(warConfig.humans ?? {}).find(
+        ([, h]) => h.linear_display_name === resolvedIssue.assignee,
+      );
+      if (humanEntry) {
+        const [humanId, human] = humanEntry;
+        dispatchMetadata["human_id"] = humanId;
+        try {
+          additionalEnvironment["ANTHROPIC_API_KEY"] = await resolveRef(
+            human.anthropic_api_key_ref,
+          );
+        } catch {
+          // Non-fatal: agent will use default API key
+        }
+        additionalEnvironment["ADVISOR_NAME"] = human.advisor_name;
+        if (warConfig.advisor) {
+          try {
+            additionalEnvironment["ADVISOR_API_URL"] = warConfig.advisor.api_url;
+            additionalEnvironment["ADVISOR_API_KEY"] = await resolveRef(
+              warConfig.advisor.api_key_ref,
+            );
+          } catch {
+            // Non-fatal: advisor features degraded
+          }
+        }
+        if (warConfig.war_name) {
+          additionalEnvironment["WAR_NAME"] = warConfig.war_name;
+        }
+      }
+    }
+
     // Get the sessions directory for this project
     const sessionsDir = getProjectSessionsDir(project);
 
@@ -502,6 +537,7 @@ export function createSessionManager(deps: SessionManagerDeps): SessionManager {
       permissions: project.agentConfig?.permissions,
       model: project.agentConfig?.model,
       ...(Object.keys(dispatchMetadata).length > 0 ? { metadata: dispatchMetadata } : {}),
+      ...(Object.keys(additionalEnvironment).length > 0 ? { additionalEnvironment } : {}),
     };
 
     let handle: RuntimeHandle;

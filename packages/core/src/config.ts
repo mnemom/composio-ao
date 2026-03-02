@@ -419,3 +419,55 @@ export function getDefaultConfig(): OrchestratorConfig {
     projects: {},
   });
 }
+
+// =============================================================================
+// WAR ENGINE CONFIG (fork-only)
+// =============================================================================
+
+export interface WarEngineHumanConfig {
+  linear_display_name: string;
+  anthropic_api_key_ref: string; // op:// or env: or raw
+  advisor_name: string;
+}
+
+export interface WarEngineConfig {
+  humans: Record<string, WarEngineHumanConfig>;
+  advisor?: { api_url: string; api_key_ref: string };
+  war_name?: string;
+}
+
+/**
+ * Extract War Engine config from the orchestrator config.
+ * Zod passthrough means the `warEngine` key passes validation untouched.
+ * Returns undefined if no warEngine key is present.
+ */
+export function getWarEngineConfig(
+  config: OrchestratorConfig,
+): WarEngineConfig | undefined {
+  const raw = (config as unknown as Record<string, unknown>)["warEngine"];
+  if (!raw || typeof raw !== "object") return undefined;
+  return raw as WarEngineConfig;
+}
+
+/**
+ * Resolve a credential reference: `op://...` → `op read`, `env:VAR` → process.env, raw passthrough.
+ */
+export async function resolveRef(ref: string): Promise<string> {
+  if (ref.startsWith("op://")) {
+    const { execFile } = await import("node:child_process");
+    const { promisify } = await import("node:util");
+    const execFileAsync = promisify(execFile);
+    const { stdout } = await execFileAsync("op", ["read", ref], {
+      timeout: 10_000,
+    });
+    return stdout.trim();
+  }
+  if (ref.startsWith("env:")) {
+    const varName = ref.slice(4);
+    const val = process.env[varName];
+    if (!val) throw new Error(`Environment variable ${varName} not set (ref: ${ref})`);
+    return val;
+  }
+  // Raw value
+  return ref;
+}

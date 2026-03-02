@@ -678,6 +678,11 @@ function createClaudeCodeAgent(): Agent {
         env["AO_ISSUE_ID"] = config.issueId;
       }
 
+      // Merge additional environment from War Engine human attribution (fork-only)
+      if (config.additionalEnvironment) {
+        Object.assign(env, config.additionalEnvironment);
+      }
+
       return env;
     },
 
