@@ -6,7 +6,7 @@ settings:
 
 overrides:
   ajv@<6.14.0: 6.14.0
-  axios@>=1.0.0 <1.15.2: 1.15.2
+  axios@<1.16.0: 1.16.0
   brace-expansion@>=2.0.0 <2.0.3: 2.0.3
   brace-expansion@>=5.0.0 <5.0.6: 5.0.6
   esbuild@<0.25.0: 0.25.0
@@ -1006,7 +1006,7 @@ packages:
     resolution: {integrity: sha512-lBehVhbnhvm41cFguZuy1FO+4x8NO3Qy/ooL0Jw4bdqTu21n7DmZMPsXEF0gL7/gNdTt4QkJGwaojy+8ExtE8w==}
     deprecated: Starting with v0.73.0, this package is bundled directly inside @hey-api/openapi-ts.
     peerDependencies:
-      axios: 1.15.2
+      axios: 1.16.0
 
   '@humanfs/core@0.19.1':
     resolution: {integrity: sha512-5DyQ4+1JEUzejeK1JGICcideyfUbGixgS9jNgex5nqkW+cY7WZhxBigmieN5Qnw9ZosSNVC9KQKyb+GUaGyKUA==}
@@ -1885,8 +1885,8 @@ packages:
   asynckit@0.4.0:
     resolution: {integrity: sha512-Oei9OH4tRh0YqU3GxhX79dM/mwVgvbZJaSNaRk+bshkj0S5cfHcgYakreBjrHwatXKbz+IoIdYLxrKim2MjW0Q==}
 
-  axios@1.15.2:
-    resolution: {integrity: sha512-wLrXxPtcrPTsNlJmKjkPnNPK2Ihe0hn0wGSaTEiHRPxwjvJwT3hKmXF4dpqxmPO9SoNb2FsYXj/xEo0gHN+D5A==}
+  axios@1.16.0:
+    resolution: {integrity: sha512-6hp5CwvTPlN2A31g5dxnwAX0orzM7pmCRDLnZSX772mv8WDqICwFjowHuPs04Mc8deIld1+ejhtaMn5vp6b+1w==}
 
   balanced-match@4.0.2:
     resolution: {integrity: sha512-x0K50QvKQ97fdEz2kPehIerj+YTeptKF9hyYkKf6egnwmMWAkADiO0QCzSp0R5xN8FTZgYaBfSaue46Ej62nMg==}
@@ -4068,9 +4068,9 @@ snapshots:
       '@eslint/core': 1.1.0
       levn: 0.4.1
 
-  '@hey-api/client-axios@0.2.12(axios@1.15.2)':
+  '@hey-api/client-axios@0.2.12(axios@1.16.0)':
     dependencies:
-      axios: 1.15.2
+      axios: 1.16.0
 
   '@humanfs/core@0.19.1': {}
 
@@ -4935,7 +4935,7 @@ snapshots:
 
   asynckit@0.4.0: {}
 
-  axios@1.15.2:
+  axios@1.16.0:
     dependencies:
       follow-redirects: 1.16.0
       form-data: 4.0.5
@@ -5062,11 +5062,11 @@ snapshots:
       '@ai-sdk/openai': 3.0.29(zod@3.25.76)
       '@cloudflare/workers-types': 4.20260214.0
       '@composio/mcp': 1.0.3-0
-      '@hey-api/client-axios': 0.2.12(axios@1.15.2)
+      '@hey-api/client-axios': 0.2.12(axios@1.16.0)
       '@langchain/core': 1.1.24(@opentelemetry/api@1.9.0)(openai@6.22.0(ws@8.21.0)(zod@3.25.76))(ws@8.21.0)
       '@langchain/openai': 1.2.7(@langchain/core@1.1.24(@opentelemetry/api@1.9.0)(openai@6.22.0(ws@8.21.0)(zod@3.25.76))(ws@8.21.0))(ws@8.21.0)
       ai: 6.0.86(zod@3.25.76)
-      axios: 1.15.2
+      axios: 1.16.0
       chalk: 4.1.2
       cli-progress: 3.12.0
       commander: 12.1.0
