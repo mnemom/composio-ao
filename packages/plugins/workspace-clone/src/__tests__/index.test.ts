@@ -174,8 +174,8 @@ describe("workspace.create()", () => {
     const cloneCall = mockExecFileAsync.mock.calls[1];
     expect(cloneCall[0]).toBe("git");
     const cloneArgs = cloneCall[1] as string[];
-    // The remote URL argument (after --reference repoPath --branch defaultBranch) is the 6th arg
-    expect(cloneArgs[5]).toBe("/repo/path");
+    // The remote URL argument (after --reference repoPath --branch defaultBranch --) is the 7th arg
+    expect(cloneArgs[6]).toBe("/repo/path");
   });
 
   it("calls git clone with --reference flag", async () => {
@@ -200,6 +200,7 @@ describe("workspace.create()", () => {
       "/repo/path",
       "--branch",
       "develop",
+      "--",
       "https://github.com/test/repo.git",
       "/mock-home/.ao-clones/proj/sess",
     ]);

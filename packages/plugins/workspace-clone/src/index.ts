@@ -35,6 +35,43 @@ function assertSafePathSegment(value: string, label: string): void {
   }
 }
 
+/**
+ * Validate a value that is passed as a positional/operand argument to `git`.
+ *
+ * Even though we invoke git via execFile (argv array, no shell), git itself
+ * interprets argv entries that begin with "-" as options. A value such as
+ * "--upload-pack=..." or "--config" reaching `git clone` is a second-order
+ * command-injection vector (option injection). Reject any value that could be
+ * misread as an option; callers additionally terminate option parsing with
+ * "--" before the operands.
+ */
+function assertNotOption(value: string, label: string): void {
+  if (typeof value !== "string" || value.length === 0) {
+    throw new Error(`Invalid ${label}: must be a non-empty string`);
+  }
+  if (value.startsWith("-")) {
+    throw new Error(`Invalid ${label} "${value}": must not begin with "-"`);
+  }
+}
+
+/**
+ * Validate a git clone source (local path or remote URL). In addition to the
+ * option-injection guard, reject transports that let git execute arbitrary
+ * commands (e.g. the "ext::" remote helper) or smuggle options into a URL.
+ */
+function assertSafeGitSource(value: string, label: string): void {
+  assertNotOption(value, label);
+  // git's "ext::" transport runs an arbitrary command; "fd::" and the
+  // file://... -> remote-helper paths are likewise dangerous as a source.
+  const lower = value.toLowerCase();
+  if (lower.startsWith("ext::") || lower.startsWith("fd::")) {
+    throw new Error(`Invalid ${label} "${value}": disallowed git transport`);
+  }
+  if (value.includes("\n") || value.includes("\0")) {
+    throw new Error(`Invalid ${label} "${value}": contains control characters`);
+  }
+}
+
 /** Expand ~ to home directory */
 function expandPath(p: string): string {
   if (p.startsWith("~/")) {
@@ -78,6 +115,13 @@ export function create(config?: Record<string, unknown>): Workspace {
         );
       }
 
+      // Validate every value that git interprets, then terminate option
+      // parsing with "--" so the operands cannot be read as options.
+      assertNotOption(repoPath, "repository path");
+      assertNotOption(cfg.project.defaultBranch, "default branch");
+      assertSafeGitSource(remoteUrl, "remote URL");
+      assertNotOption(clonePath, "clone path");
+
       // Clone using --reference for faster clone with shared objects
       try {
         await execFileAsync("git", [
@@ -86,6 +130,7 @@ export function create(config?: Record<string, unknown>): Workspace {
           repoPath,
           "--branch",
           cfg.project.defaultBranch,
+          "--",
           remoteUrl,
           clonePath,
         ]);
@@ -190,6 +235,13 @@ export function create(config?: Record<string, unknown>): Workspace {
         remoteUrl = repoPath;
       }
 
+      // Validate every value that git interprets, then terminate option
+      // parsing with "--" so the operands cannot be read as options.
+      assertNotOption(repoPath, "repository path");
+      assertNotOption(cfg.project.defaultBranch, "default branch");
+      assertSafeGitSource(remoteUrl, "remote URL");
+      assertNotOption(workspacePath, "workspace path");
+
       // Clone fresh — clean up partial directory on failure
       try {
         await execFileAsync("git", [
@@ -198,6 +250,7 @@ export function create(config?: Record<string, unknown>): Workspace {
           repoPath,
           "--branch",
           cfg.project.defaultBranch,
+          "--",
           remoteUrl,
           workspacePath,
         ]);
