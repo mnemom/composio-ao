@@ -30,7 +30,7 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --exclude '**/node_modules/**' --exclude '**/dist/**'",
     "test:watch": "vitest",
     "clean": "rm -rf dist"
   },
@@ -40,6 +40,6 @@
   "devDependencies": {
     "@types/node": "^25.2.3",
     "typescript": "^5.7.0",
-    "vitest": "^3.0.0"
+    "vitest": "^4.1.11"
   }
 }

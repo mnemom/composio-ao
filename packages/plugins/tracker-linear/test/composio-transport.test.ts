@@ -6,9 +6,15 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 const { mockExecute, MockComposio } = vi.hoisted(() => {
   const mockExecute = vi.fn();
-  const MockComposio = vi.fn().mockImplementation(() => ({
-    tools: { execute: mockExecute },
-  }));
+  // NOTE: must be a `function`, not an arrow. The production code calls
+  // `new Composio(...)`, and as of vitest 4 a vi.fn() implementation is invoked
+  // with `new` directly -- arrow functions are not constructible, so vitest
+  // rejects them ("The vi.fn() mock did not use 'function' or 'class' in its
+  // implementation"). Under vitest 3 the implementation was wrapped and an
+  // arrow happened to work.
+  const MockComposio = vi.fn().mockImplementation(function () {
+    return { tools: { execute: mockExecute } };
+  });
   return { mockExecute, MockComposio };
 });
 
