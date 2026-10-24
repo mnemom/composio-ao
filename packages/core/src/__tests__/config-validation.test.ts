@@ -398,4 +398,60 @@ describe("Config Defaults", () => {
     const validated = validateConfig(config);
     expect(validated.projects.proj1.tracker).toEqual({ plugin: "github" });
   });
+
+  it("fills every plugin default when defaults is omitted", () => {
+    const validated = validateConfig({ projects: {} });
+    expect(validated.defaults).toEqual({
+      runtime: "tmux",
+      agent: "claude-code",
+      workspace: "worktree",
+      notifiers: ["composio", "desktop"],
+    });
+  });
+
+  it("fills the remaining plugin defaults when defaults is partial", () => {
+    const validated = validateConfig({ projects: {}, defaults: { runtime: "process" } });
+    expect(validated.defaults).toEqual({
+      runtime: "process",
+      agent: "claude-code",
+      workspace: "worktree",
+      notifiers: ["composio", "desktop"],
+    });
+  });
+
+  it("defaults agentConfig to permissions skip when omitted", () => {
+    const validated = validateConfig({
+      projects: {
+        proj1: { path: "/repos/test", repo: "org/test" },
+      },
+    });
+    expect(validated.projects.proj1.agentConfig).toEqual({ permissions: "skip" });
+  });
+
+  it("applies auto and action defaults to global reactions", () => {
+    const validated = validateConfig({
+      projects: {},
+      reactions: { "ci-failed": { message: "fix CI" } },
+    });
+    expect(validated.reactions["ci-failed"]).toEqual({
+      auto: true,
+      action: "notify",
+      message: "fix CI",
+    });
+  });
+
+  it("keeps project reaction overrides to the fields the user set", () => {
+    // lifecycle-manager spreads the project override over the global reaction,
+    // so any injected default here would silently override the global value.
+    const validated = validateConfig({
+      projects: {
+        proj1: {
+          path: "/repos/test",
+          repo: "org/test",
+          reactions: { "ci-failed": { message: "hi" } },
+        },
+      },
+    });
+    expect(validated.projects.proj1.reactions?.["ci-failed"]).toEqual({ message: "hi" });
+  });
 });

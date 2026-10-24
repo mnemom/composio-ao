@@ -22,15 +22,24 @@ import { generateSessionPrefix } from "./paths.js";
 // ZOD SCHEMAS
 // =============================================================================
 
-const ReactionConfigSchema = z.object({
-  auto: z.boolean().default(true),
-  action: z.enum(["send-to-agent", "notify", "auto-merge"]).default("notify"),
+// Base fields without defaults. Project-level overrides use `.partial()` of this
+// base: in zod 4, defaults nested under `.optional()` are applied on parse, so a
+// partial of the defaulted schema would inject `auto`/`action` into every
+// project override and clobber the global reaction it is merged onto.
+const ReactionConfigBaseSchema = z.object({
+  auto: z.boolean(),
+  action: z.enum(["send-to-agent", "notify", "auto-merge"]),
   message: z.string().optional(),
   priority: z.enum(["urgent", "action", "warning", "info"]).optional(),
   retries: z.number().optional(),
   escalateAfter: z.union([z.number(), z.string()]).optional(),
   threshold: z.string().optional(),
   includeSummary: z.boolean().optional(),
+});
+
+const ReactionConfigSchema = ReactionConfigBaseSchema.extend({
+  auto: z.boolean().default(true),
+  action: z.enum(["send-to-agent", "notify", "auto-merge"]).default("notify"),
 });
 
 const TrackerConfigSchema = z
@@ -74,8 +83,8 @@ const ProjectConfigSchema = z.object({
   scm: SCMConfigSchema.optional(),
   symlinks: z.array(z.string()).optional(),
   postCreate: z.array(z.string()).optional(),
-  agentConfig: AgentSpecificConfigSchema.default({}),
-  reactions: z.record(ReactionConfigSchema.partial()).optional(),
+  agentConfig: AgentSpecificConfigSchema.prefault({}),
+  reactions: z.record(z.string(), ReactionConfigBaseSchema.partial()).optional(),
   agentRules: z.string().optional(),
   agentRulesFile: z.string().optional(),
   orchestratorRules: z.string().optional(),
@@ -93,16 +102,16 @@ const OrchestratorConfigSchema = z.object({
   terminalPort: z.number().optional(),
   directTerminalPort: z.number().optional(),
   readyThresholdMs: z.number().nonnegative().default(300_000),
-  defaults: DefaultPluginsSchema.default({}),
-  projects: z.record(ProjectConfigSchema),
-  notifiers: z.record(NotifierConfigSchema).default({}),
-  notificationRouting: z.record(z.array(z.string())).default({
+  defaults: DefaultPluginsSchema.prefault({}),
+  projects: z.record(z.string(), ProjectConfigSchema),
+  notifiers: z.record(z.string(), NotifierConfigSchema).default({}),
+  notificationRouting: z.record(z.string(), z.array(z.string())).default({
     urgent: ["desktop", "composio"],
     action: ["desktop", "composio"],
     warning: ["composio"],
     info: ["composio"],
   }),
-  reactions: z.record(ReactionConfigSchema).default({}),
+  reactions: z.record(z.string(), ReactionConfigSchema).default({}),
 });
 
 // =============================================================================
